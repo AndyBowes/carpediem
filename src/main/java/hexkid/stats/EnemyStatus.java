@@ -9,14 +9,16 @@ public class EnemyStatus {
     public final double heading;
     public final double distance;
     public final double bearing;
+    public final double energy;
     public final Point pos;
 
-    public EnemyStatus(long turn, double velocity, double heading, double distance, double bearing, Point targetPosition) {
+    public EnemyStatus(long turn, double velocity, double heading, double distance, double bearing, double energy, Point targetPosition) {
         this.turn = turn;
         this.velocity = velocity;
         this.heading = heading;
         this.distance = distance;
         this.bearing = bearing;
         this.pos = targetPosition;
+        this.energy = energy;
     }
 }

@@ -1,5 +1,9 @@
 package hexkid;
 
+import hexkid.condition.EnemyFiredCondition;
+import hexkid.movement.DodgeMove;
+import hexkid.movement.MeleeMove;
+import hexkid.movement.Move;
 import hexkid.stats.Enemy;
 import hexkid.stats.EnemyStatus;
 import hexkid.stats.Enemys;
@@ -31,6 +35,16 @@ public class CarpeDiem extends AdvancedRobot {
     private Point predictedPosition = null;
 
     private TargetManager targetManager;
+    private Move currentMove = null;
+    private EnemyFiredCondition enemyFiredCondition=null;
+
+    public Enemy getCurrentTarget(){
+        return this.selectedTarget;
+    }
+
+    public Enemys getEnemies(){
+        return enemies;
+    }
 
     @Override
     public void onRobotDeath(RobotDeathEvent event) {
@@ -38,6 +52,9 @@ public class CarpeDiem extends AdvancedRobot {
         enemies.remove(event.getName());
         if (selectedTarget != null && selectedTarget.name.equals(event.getName())) {
             selectedTarget = null;
+        }
+        if (getOthers() == 1){
+            currentMove = new DodgeMove(this, enemies);
         }
     }
 
@@ -47,6 +64,11 @@ public class CarpeDiem extends AdvancedRobot {
         this.enemies.clear();
         this.radarDir = 1;
         this.robotDir = 1;
+
+        this.currentMove = new MeleeMove(this, this.enemies);
+        if (this.getOthers()==1){
+            this.currentMove = new DodgeMove(this, this.enemies);
+        }
 
         targetManager = new TargetManager(getBattleFieldWidth(), getBattleFieldHeight(), getWidth());
 
@@ -63,7 +85,12 @@ public class CarpeDiem extends AdvancedRobot {
         while (true) {
 
             Point myPosition = currentPosition();
+
+            Enemy previousTarget = getCurrentTarget();
             selectedTarget = selectTarget(myPosition, selectedTarget);
+            if (selectedTarget!= null && !selectedTarget.equals(previousTarget)){
+                onSwitchedTarget(previousTarget, selectedTarget);
+            }
 
             doMove(selectedTarget);
 
@@ -99,6 +126,14 @@ public class CarpeDiem extends AdvancedRobot {
         }
     }
 
+    private void onSwitchedTarget(Enemy previousTarget, Enemy newTarget) {
+        if (enemyFiredCondition != null) {
+            removeCustomEvent(enemyFiredCondition);
+        }
+        enemyFiredCondition = new EnemyFiredCondition(newTarget);
+        addCustomEvent(enemyFiredCondition);
+    }
+
     private void aimGunAtPosition(Point predictedPosition) {
         double bearingRadians = currentPosition().bearingTo(predictedPosition);
         setDebugProperty("targetBearing", selectedTarget.name + " : " + bearingRadians);
@@ -112,26 +147,27 @@ public class CarpeDiem extends AdvancedRobot {
         return predictedPosition;
     }
 
-    private Point currentPosition() {
+    public Point currentPosition() {
         return new Point(this.getX(), this.getY());
     }
 
     private void doMove(Enemy selectedTarget) {
-        // TODO - Simple Circular Motion need to make this less predicatable (e.g Anti- Gravity positioning)
-        setAhead(32.0);
-        setTurnLeft(20.0);
+        // Delegate to Current Movement Mode
+        this.currentMove.doMove(currentPosition(), selectedTarget);
     }
 
     private Enemy selectTarget(Point myPosition, Enemy currentTarget) {
         Enemy selectedTarget;
         Enemy closestEnemy = this.enemies.findClosestEnemy(currentPosition());
-        if (currentTarget == null || closestEnemy.name.equals(currentTarget.name)) {
+        if (currentTarget == null || closestEnemy.equals(currentTarget)) {
             selectedTarget = closestEnemy;
         } else {
             selectedTarget = currentTarget;
-            // If there is another target which is significantly closer then switch targets
-            if (myPosition.distance(selectedTarget.lastKnownPos()) * SWAP_FACTOR > myPosition.distance(closestEnemy.lastKnownPos())) {
-                selectedTarget = closestEnemy;
+            if (this.getGunHeat() > 0.5){
+                // If there is another target which is significantly closer then switch targets
+                if (myPosition.distance(selectedTarget.lastKnownPos()) * SWAP_FACTOR > myPosition.distance(closestEnemy.lastKnownPos())) {
+                    selectedTarget = closestEnemy;
+                }
             }
         }
         return selectedTarget;
@@ -149,12 +185,19 @@ public class CarpeDiem extends AdvancedRobot {
     public void onCustomEvent(CustomEvent event) {
         if (event.getCondition() instanceof RadarTurnCompleteCondition) {
             onRadarScanComplete(event);
+        } else if ( event.getCondition() instanceof EnemyFiredCondition){
+            onIncomingBullet(event, ((EnemyFiredCondition)event.getCondition()).enemy);
         }
     }
 
     public void onRadarScanComplete(CustomEvent event) {
         radarDir *= -1;
         setTurnRadarRightRadians(2 * PI * radarDir);
+    }
+
+    public void onIncomingBullet(CustomEvent event, Enemy enemy){
+        double bulletPower = Rules.MAX_BULLET_POWER; // TODO - Determine energy of Enemies Bullet
+        currentMove.handleIncoming(currentPosition(), enemy, bulletPower);
     }
 
     @Override
@@ -171,8 +214,20 @@ public class CarpeDiem extends AdvancedRobot {
     }
 
     @Override
+    public void onWin(WinEvent event) {
+        for (int i=0; i<25; i++){
+            turnRight(18);
+            turnLeft(18);
+        }
+    }
+
+    @Override
     public void onPaint(Graphics2D g) {
         super.onPaint(g);
+
+        if (currentMove!=null){
+            currentMove.paint(g);
+        }
 
         // Show predicted position
         g.setColor(Color.red);
