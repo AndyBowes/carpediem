@@ -1,6 +1,7 @@
 package hexkid;
 
 import hexkid.condition.EnemyFiredCondition;
+import hexkid.movement.AntiGravityMove;
 import hexkid.movement.DodgeMove;
 import hexkid.movement.MeleeMove;
 import hexkid.movement.Move;
@@ -47,25 +48,13 @@ public class CarpeDiem extends AdvancedRobot {
     }
 
     @Override
-    public void onRobotDeath(RobotDeathEvent event) {
-        super.onRobotDeath(event);
-        enemies.remove(event.getName());
-        if (selectedTarget != null && selectedTarget.name.equals(event.getName())) {
-            selectedTarget = null;
-        }
-        if (getOthers() == 1){
-            currentMove = new DodgeMove(this, enemies);
-        }
-    }
-
-    @Override
     public void run() {
 
         this.enemies.clear();
         this.radarDir = 1;
         this.robotDir = 1;
 
-        this.currentMove = new MeleeMove(this, this.enemies);
+        this.currentMove = new AntiGravityMove(this, this.enemies);
         if (this.getOthers()==1){
             this.currentMove = new DodgeMove(this, this.enemies);
         }
@@ -83,6 +72,8 @@ public class CarpeDiem extends AdvancedRobot {
         setMaxVelocity(4.0);
 
         while (true) {
+
+            currentMove.removeOldHits(getTime()-50);
 
             Point myPosition = currentPosition();
 
@@ -201,6 +192,11 @@ public class CarpeDiem extends AdvancedRobot {
     }
 
     @Override
+    public void onHitByBullet(HitByBulletEvent event) {
+        currentMove.recordHitByBullet(currentPosition(), event);
+    }
+
+    @Override
     public void onScannedRobot(ScannedRobotEvent event) {
         double bearing = normalizeBearingRadians(getHeadingRadians() + event.getBearingRadians());
         enemies.addSighting(currentPosition(), bearing, event);
@@ -212,6 +208,19 @@ public class CarpeDiem extends AdvancedRobot {
             setTurnRadarRightRadians(radarSweep);
         }
     }
+
+    @Override
+    public void onRobotDeath(RobotDeathEvent event) {
+        super.onRobotDeath(event);
+        enemies.remove(event.getName());
+        if (selectedTarget != null && selectedTarget.name.equals(event.getName())) {
+            selectedTarget = null;
+        }
+        if (getOthers() == 1){
+            currentMove = new DodgeMove(this, enemies);
+        }
+    }
+
 
     @Override
     public void onWin(WinEvent event) {
