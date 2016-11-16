@@ -16,7 +16,7 @@ public class AntiGravityMove extends AbstractMove {
 
 
     public static final int CORNER_FORCE_MULTIPLIER = 6000;
-    public static final int WALL_FORCE_MULTIPLIER = 4000;
+    public static final int WALL_FORCE_MULTIPLIER = 8000;
     public static final int BULLET_FORCE_MULTIPLIER = 500;
     public static final int ROBOT_FORCE_MULTIPLIER = 500;
     private double movedBearing;
@@ -53,13 +53,13 @@ public class AntiGravityMove extends AbstractMove {
             forceY += botForce * cos(theta);
         }
 
-        // Try and stay about 200 from the closest Enemy
+        // Try and stay about 150 from the closest Enemy
         Enemy closestEnemy = enemys.findClosestEnemy(myPos);
         if (closestEnemy != null) {
             EnemyStatus latestSighting = closestEnemy.latestSighting();
             final double distance = myPos.distance(latestSighting.pos);
             final double theta = latestSighting.pos.bearingTo(myPos);
-            final double botForce = (200-distance) * ROBOT_FORCE_MULTIPLIER * 0.001;
+            final double botForce = (150-distance) * ROBOT_FORCE_MULTIPLIER * 0.001;
             forceX += botForce * sin(theta);
             forceY += botForce * cos(theta);
         }

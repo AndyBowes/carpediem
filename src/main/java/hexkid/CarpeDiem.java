@@ -3,7 +3,6 @@ package hexkid;
 import hexkid.condition.EnemyFiredCondition;
 import hexkid.movement.AntiGravityMove;
 import hexkid.movement.DodgeMove;
-import hexkid.movement.MeleeMove;
 import hexkid.movement.Move;
 import hexkid.stats.Enemy;
 import hexkid.stats.EnemyStatus;
@@ -18,6 +17,7 @@ import java.awt.*;
 import static java.awt.Color.*;
 import static java.lang.Math.PI;
 import static hexkid.util.Physics.normalizeBearingRadians;
+import static java.lang.Math.copySign;
 
 public class CarpeDiem extends AdvancedRobot {
 
@@ -64,7 +64,7 @@ public class CarpeDiem extends AdvancedRobot {
         setColors(ORANGE, BLACK, LIGHT_GRAY);
         setAdjustGunForRobotTurn(true);
         setAdjustRadarForGunTurn(true);
-
+        setScanColor(MAGENTA);
         addCustomEvent(new RadarTurnCompleteCondition(this));
         setTurnRadarRightRadians(2 * Math.PI * radarDir); // Perform a complete circle
         selectedTarget = null;
@@ -198,6 +198,9 @@ public class CarpeDiem extends AdvancedRobot {
 
     @Override
     public void onScannedRobot(ScannedRobotEvent event) {
+
+        Enemy stalestEnemy = enemies.findStalestEnemy();
+
         double bearing = normalizeBearingRadians(getHeadingRadians() + event.getBearingRadians());
         enemies.addSighting(currentPosition(), bearing, event);
 
@@ -206,6 +209,14 @@ public class CarpeDiem extends AdvancedRobot {
             double radarSweep = getHeadingRadians() - getRadarHeadingRadians() + event.getBearingRadians();
             radarDir *= -1;
             setTurnRadarRightRadians(radarSweep);
+        } else {
+            // If we have just scanned the Stalest Robot then look for the new stalest robot
+            if (getTime() > 8 && (stalestEnemy != null ) && (event.getName().equals(stalestEnemy.name))){
+                stalestEnemy = enemies.findStalestEnemy();
+                double radarSweep = normalizeBearingRadians(getHeadingRadians() - getRadarHeadingRadians() + currentPosition().bearingTo(stalestEnemy.lastKnownPos()));
+                radarSweep += copySign(PI/6,radarSweep);
+                setTurnRadarRightRadians(radarSweep);
+            }
         }
     }
 
